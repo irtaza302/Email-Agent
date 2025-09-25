@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Tuple
+from typing import Optional, Tuple
 
 from dotenv import load_dotenv
 
@@ -25,20 +25,13 @@ class GmailConfig:
     )
     credentials_path: Path = ROOT_DIR / "config" / "credentials.json"
     token_path: Path = ROOT_DIR / "config" / "token.json"
-    job_label: str = os.getenv("JOB_LABEL", "JobAlerts")
-    job_keywords: Tuple[str, ...] = tuple(
-        kw.strip()
-        for kw in os.getenv(
-            "JOB_KEYWORDS", "job,interview,position,recruiter,hiring"
-        ).split(",")
-        if kw.strip()
-    )
+    job_label: Optional[str] = os.getenv("JOB_LABEL") or None
 
 
 @dataclass(frozen=True)
 class SummaryConfig:
     openrouter_api_key: str | None = os.getenv("OPENROUTER_API_KEY")
-    model: str = os.getenv("SUMMARY_MODEL", "openrouter/anthropic/claude-3.5-sonnet")
+    model: str = os.getenv("SUMMARY_MODEL", "x-ai/grok-4-fast:free")
     max_emails: int = int(os.getenv("SUMMARY_MAX_EMAILS", "20"))
     timeframe_hours: int = int(os.getenv("SUMMARY_TIMEFRAME_HOURS", "24"))
     summary_recipient: str | None = os.getenv("SUMMARY_RECIPIENT")

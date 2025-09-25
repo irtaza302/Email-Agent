@@ -59,8 +59,8 @@ class GmailClient:
                 raise exc
         return self._service
 
-    def fetch_job_messages(self, *, timeframe_hours: int, max_results: int) -> list[dict]:
-        """Fetch Gmail messages matching job filters within timeframe."""
+    def fetch_recent_messages(self, *, timeframe_hours: int, max_results: int) -> list[dict]:
+        """Fetch recent Gmail messages within the timeframe (optionally filtered by label)."""
 
         service = self._get_service()
         query_parts = []
@@ -68,13 +68,6 @@ class GmailClient:
             query_parts.append(f"label:{self._config.job_label}")
 
         query_parts.append(f"newer_than:{timeframe_hours}h")
-
-        if self._config.job_keywords:
-            keyword_query = " OR ".join(
-                [f"subject:{kw.strip()}" for kw in self._config.job_keywords if kw.strip()]
-            )
-            if keyword_query:
-                query_parts.append(f"({keyword_query})")
 
         query = " ".join(query_parts)
         logger.debug("Gmail query: %s", query)

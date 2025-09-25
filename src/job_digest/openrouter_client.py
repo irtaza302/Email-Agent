@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import logging
-from typing import Iterable
+import re
+from dataclasses import dataclass
+from typing import Iterable, Sequence
 
 import requests
 from requests.exceptions import HTTPError, RequestException
@@ -14,6 +17,14 @@ from .config import SummaryConfig
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class JobClassificationResult:
+    """Result returned by the job email classifier."""
+
+    relevant_indices: list[int]
+    summary: str
+
+
 class OpenRouterClient:
     """Client for interacting with OpenRouter chat completions API."""
 
@@ -22,22 +33,15 @@ class OpenRouterClient:
             raise ValueError("OPENROUTER_API_KEY is not set")
         self._config = config
 
-    @retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(3))
-    def summarize_messages(self, *, snippets: Iterable[str]) -> str:
-        """Generate a summary using OpenRouter."""
-
-        prompt = self._build_prompt(snippets)
+    def _chat_completion(self, chat_messages: list[dict]) -> str:
         payload = {
             "model": self._config.model,
-            "messages": [
-                {"role": "system", "content": "You are an assistant that writes concise job email digests."},
-                {"role": "user", "content": prompt},
-            ],
+            "messages": chat_messages,
         }
 
         headers = {
             "Authorization": f"Bearer {self._config.openrouter_api_key}",
-            "HTTP-Referer": "https://openrouter.ai/",  # required per OpenRouter policy
+            "HTTP-Referer": "https://openrouter.ai/",
             "X-Title": "Job Email Digest",
             "User-Agent": self._config.user_agent,
         }
@@ -51,7 +55,13 @@ class OpenRouterClient:
             )
             response.raise_for_status()
         except HTTPError as exc:
-            logger.exception("OpenRouter API responded with error: %s", exc)
+            try:
+                error_detail = exc.response.text  # type: ignore[assignment]
+            except Exception:  # pragma: no cover - defensive
+                error_detail = "<no response body>"
+            logger.error(
+                "OpenRouter API responded with error %s: %s", exc.response.status_code, error_detail
+            )
             raise
         except RequestException as exc:
             logger.exception("OpenRouter API request failed: %s", exc)
@@ -72,4 +82,79 @@ class OpenRouterClient:
             "If nothing important is found, state that clearly.\n\n"
             f"Emails:\n{joined}"
         )
+
+    @retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(3))
+    def summarize_messages(self, *, snippets: Iterable[str]) -> str:
+        """Generate a summary using OpenRouter."""
+
+        prompt = self._build_prompt(snippets)
+        chat_messages = [
+            {
+                "role": "system",
+                "content": "You are an assistant that writes concise job email digests.",
+            },
+            {"role": "user", "content": prompt},
+        ]
+        return self._chat_completion(chat_messages)
+
+    @retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(3))
+    def identify_job_emails(self, *, email_contexts: Sequence[dict]) -> JobClassificationResult:
+        """Identify which recent emails are job-related using the LLM."""
+
+        if not email_contexts:
+            return JobClassificationResult([], "No emails to analyse.")
+
+        system_prompt = (
+            "You are an assistant that ONLY responds with JSON. "
+            "Determine which emails relate to job opportunities, recruiting, interviews, "
+            "offers, or hiring updates. Return an object with keys: "
+            "job_related_indices (array of integers referencing the email index field), "
+            "summary (string describing notable job-related items)."
+        )
+
+        payload_text = json.dumps({"emails": email_contexts}, ensure_ascii=False)
+        chat_messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": payload_text},
+        ]
+
+        raw_response = self._chat_completion(chat_messages)
+        data = self._parse_json_response(raw_response, total=len(email_contexts))
+
+        relevant_indices = data.get("job_related_indices") or data.get(
+            "job_related_emails", []
+        )
+        validated_indices = self._normalise_indices(relevant_indices, len(email_contexts))
+        summary = data.get("summary") or "No job-related emails found in the selected timeframe."
+        return JobClassificationResult(validated_indices, summary.strip())
+
+    def _parse_json_response(self, content: str, total: int) -> dict:
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError:
+            match = re.search(r"\{.*\}", content, re.DOTALL)
+            if match:
+                try:
+                    return json.loads(match.group())
+                except json.JSONDecodeError:
+                    logger.error("Failed to parse JSON from OpenRouter response: %s", content)
+            logger.error("Invalid JSON response from classifier: %s", content)
+            # Fallback: treat all emails as potentially relevant so nothing is missed.
+            return {
+                "job_related_indices": list(range(1, total + 1)),
+                "summary": "Potential job-related content detected; unable to parse classifier response.",
+            }
+
+    @staticmethod
+    def _normalise_indices(indices: Iterable, total: int) -> list[int]:
+        normalised: list[int] = []
+        for value in indices or []:
+            idx: int | None = None
+            if isinstance(value, (int, float)):
+                idx = int(value)
+            elif isinstance(value, str) and value.strip().isdigit():
+                idx = int(value.strip())
+            if idx is not None and 1 <= idx <= total:
+                normalised.append(idx)
+        return sorted(set(normalised))
 

@@ -22,14 +22,31 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
 
-      - name: Restore secrets
+      - name: Create environment file
+        run: |
+          cat > .env << EOF
+          OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}
+          SUMMARY_RECIPIENT=${{ secrets.SUMMARY_RECIPIENT }}
+          SUMMARY_SENDER=${{ secrets.SUMMARY_SENDER }}
+          JOB_LABEL=${{ vars.JOB_LABEL || 'JobAlerts' }}
+          SUMMARY_MODEL=${{ vars.SUMMARY_MODEL || 'x-ai/grok-4-fast:free' }}
+          SUMMARY_MAX_EMAILS=${{ vars.SUMMARY_MAX_EMAILS || '20' }}
+          SUMMARY_TIMEFRAME_HOURS=${{ vars.SUMMARY_TIMEFRAME_HOURS || '24' }}
+          LOG_LEVEL=${{ vars.LOG_LEVEL || 'INFO' }}
+          SUMMARY_TONE=${{ vars.SUMMARY_TONE || 'professional' }}
+          SUMMARY_FORMAT=${{ vars.SUMMARY_FORMAT || 'markdown' }}
+          SUMMARY_THEME_COLOR=${{ vars.SUMMARY_THEME_COLOR || '#2563eb' }}
+          SUMMARY_BG_COLOR=${{ vars.SUMMARY_BG_COLOR || '#0f172a' }}
+          SUMMARY_HEADER_TITLE=${{ vars.SUMMARY_HEADER_TITLE || 'Job Digest' }}
+          SUMMARY_HEADER_SUBTITLE=${{ vars.SUMMARY_HEADER_SUBTITLE || '' }}
+          EOF
+
+      - name: Restore Google credentials
         env:
-          ENV_FILE_B64: ${{ secrets.ENV_FILE_B64 }}
           GCP_CREDENTIALS_B64: ${{ secrets.GCP_CREDENTIALS_B64 }}
           GCP_TOKEN_B64: ${{ secrets.GCP_TOKEN_B64 }}
         run: |
           mkdir -p config
-          echo "$ENV_FILE_B64" | base64 -d > .env
           echo "$GCP_CREDENTIALS_B64" | base64 -d > config/credentials.json
           echo "$GCP_TOKEN_B64" | base64 -d > config/token.json
 

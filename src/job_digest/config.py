@@ -38,6 +38,12 @@ class SummaryConfig:
     summary_sender: str | None = os.getenv("SUMMARY_SENDER")
     openrouter_api_url: str = "https://openrouter.ai/api/v1/chat/completions"
     user_agent: str = "job-email-digest/0.1"
+    summarizer_tone: str = os.getenv("SUMMARY_TONE", "professional")
+    summarizer_format: str = os.getenv("SUMMARY_FORMAT", "markdown")
+    html_theme_color: str = os.getenv("SUMMARY_THEME_COLOR", "#2563eb")
+    html_background_color: str = os.getenv("SUMMARY_BG_COLOR", "#0f172a")
+    html_header_title: str = os.getenv("SUMMARY_HEADER_TITLE", "Job Digest")
+    html_header_subtitle: str = os.getenv("SUMMARY_HEADER_SUBTITLE", "")
 
 
 @dataclass(frozen=True)

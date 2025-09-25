@@ -25,6 +25,14 @@ class JobClassificationResult:
     summary: str
 
 
+@dataclass(frozen=True)
+class SummaryResult:
+    """Summarisation payload combining plain-text and HTML output."""
+
+    plain_text: str
+    html: str
+
+
 class OpenRouterClient:
     """Client for interacting with OpenRouter chat completions API."""
 
@@ -74,28 +82,54 @@ class OpenRouterClient:
             logger.error("Unexpected OpenRouter response structure: %s", data)
             raise ValueError("Invalid OpenRouter response") from exc
 
-    def _build_prompt(self, snippets: Iterable[str]) -> str:
-        joined = "\n\n".join(snippets)
-        return (
-            "Summarize the following job-related emails into bullet points. "
-            "Highlight interviews, offers, deadlines, and action items. "
-            "If nothing important is found, state that clearly.\n\n"
-            f"Emails:\n{joined}"
-        )
+    def _build_summary_payload(self, snippets: Sequence[str]) -> dict:
+        return {
+            "instructions": [
+                "Create a concise daily digest of the supplied emails.",
+                "Highlight interviews, offers, deadlines, and explicit action items.",
+                "Group similar notifications together where useful.",
+                "If nothing important is present, say so plainly.",
+            ],
+            "emails": [
+                {"index": index + 1, "content": snippet}
+                for index, snippet in enumerate(snippets)
+            ],
+        }
 
     @retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(3))
-    def summarize_messages(self, *, snippets: Iterable[str]) -> str:
+    def summarize_messages(
+        self, *, snippets: Iterable[str], tone: str, format_hint: str
+    ) -> SummaryResult:
         """Generate a summary using OpenRouter."""
 
-        prompt = self._build_prompt(snippets)
+        snippet_list = list(snippets)
+        payload = {
+            "preferred_format": format_hint,
+            "tone": tone,
+            "digest": self._build_summary_payload(snippet_list),
+        }
         chat_messages = [
             {
                 "role": "system",
-                "content": "You are an assistant that writes concise job email digests.",
+                "content": (
+                    "You are an assistant that writes daily job email digests with a {tone} tone. "
+                    "Respond ONLY with JSON containing keys plain_text_summary and html_summary. "
+                    "plain_text_summary must be clear for plain-text emails. "
+                    "html_summary must be production-ready HTML using headings and bullet lists."
+                ).format(tone=tone),
             },
-            {"role": "user", "content": prompt},
+            {
+                "role": "user",
+                "content": json.dumps(payload, ensure_ascii=False),
+            },
         ]
-        return self._chat_completion(chat_messages)
+        raw_response = self._chat_completion(chat_messages)
+        data = self._parse_summary_response(raw_response)
+        plain_text = data.get("plain_text_summary") or data.get("text_summary")
+        html = data.get("html_summary") or ""
+        if not plain_text:
+            plain_text = "No job-related emails found in the selected timeframe."
+        return SummaryResult(plain_text=plain_text.strip(), html=html.strip())
 
     @retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(3))
     def identify_job_emails(self, *, email_contexts: Sequence[dict]) -> JobClassificationResult:
@@ -157,4 +191,20 @@ class OpenRouterClient:
             if idx is not None and 1 <= idx <= total:
                 normalised.append(idx)
         return sorted(set(normalised))
+
+    def _parse_summary_response(self, content: str) -> dict:
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError:
+            match = re.search(r"\{.*\}", content, re.DOTALL)
+            if match:
+                try:
+                    return json.loads(match.group())
+                except json.JSONDecodeError:
+                    logger.error("Failed to parse JSON summary response: %s", content)
+            logger.error("Invalid JSON summary response: %s", content)
+            return {
+                "plain_text_summary": content.strip(),
+                "html_summary": "",
+            }
 

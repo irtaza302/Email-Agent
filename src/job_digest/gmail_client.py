@@ -129,14 +129,24 @@ class GmailClient:
                 result[name] = header.get("value", "")
         return result
 
-    def send_email(self, *, sender: str, recipient: str, subject: str, body: str) -> None:
+    def send_email(
+        self,
+        *,
+        sender: str,
+        recipient: str,
+        subject: str,
+        body_text: str,
+        body_html: str | None = None,
+    ) -> None:
         service = self._get_service()
 
         message = email.message.EmailMessage()
         message["To"] = recipient
         message["From"] = sender
         message["Subject"] = subject
-        message.set_content(body)
+        message.set_content(body_text)
+        if body_html:
+            message.add_alternative(body_html, subtype="html")
 
         encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
 

@@ -25,8 +25,10 @@ class JobEmailSummarizer:
         self._openrouter_client = openrouter_client
         self._max_emails = max_emails
         self._timeframe_hours = timeframe_hours
+        self._summary_tone = openrouter_client._config.summarizer_tone  # noqa: SLF001
+        self._summary_format = openrouter_client._config.summarizer_format  # noqa: SLF001
 
-    def generate_summary(self) -> tuple[str, list[dict]]:
+    def generate_summary(self) -> tuple[str, list[dict], str, str]:
         """Fetch job messages and generate a summary text."""
 
         messages = self._gmail_client.fetch_recent_messages(
@@ -67,7 +69,7 @@ class JobEmailSummarizer:
 
         if not classification.relevant_indices:
             logger.info("Classifier found no job-related emails")
-            return (classification.summary, [])
+            return (classification.summary, [], classification.summary, "")
 
         relevant_messages = [
             enriched_messages[idx - 1]
@@ -87,17 +89,38 @@ class JobEmailSummarizer:
 
         if not snippets:
             logger.info("No relevant snippets after classifier filtering")
-            return (classification.summary, [])
+            return (classification.summary, [], classification.summary, "")
 
-        summary = self._openrouter_client.summarize_messages(snippets=snippets)
-        return summary, relevant_messages
+        summary_result = self._openrouter_client.summarize_messages(
+            snippets=snippets,
+            tone=self._summary_tone,
+            format_hint=self._summary_format,
+        )
+        return (
+            summary_result.plain_text,
+            relevant_messages,
+            summary_result.plain_text,
+            summary_result.html,
+        )
 
     def _format_snippet(
         self, *, subject: str, sender: str, received: str | None, body: str
     ) -> str:
-        received_str = received or ""
-        preview = body[:500]
-        return (
-            f"Subject: {subject}\nFrom: {sender}\nDate: {received_str}\nBody Preview:\n{preview}"
+        lines = [
+            "- Subject: {subject}",
+            "  From: {sender}",
+            "  Date: {date}",
+        ]
+        if body:
+            preview_lines = body.strip().splitlines()
+            if preview_lines:
+                lines.append("  Preview: {preview}")
+        else:
+            preview_lines = []
+        return "\n".join(lines).format(
+            subject=subject,
+            sender=sender,
+            date=received or "",
+            preview=" ".join(preview_lines[:3])[:300],
         )
 

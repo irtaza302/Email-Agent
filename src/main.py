@@ -37,10 +37,17 @@ def main() -> None:
 
     if args.dry_run:
         logging.info("Running digest in dry-run mode")
-        summary, messages = service._summarizer.generate_summary()  # pylint: disable=protected-access
-        body = service._build_email_body(summary=summary, messages=messages)  # pylint: disable=protected-access
-        print("Summary:\n", summary)
-        print("\nBody preview:\n", body)
+        (
+            summary_plain,
+            messages,
+            summary_text_plain,
+            summary_html,
+        ) = service._summarizer.generate_summary()  # pylint: disable=protected-access
+        body_text = service._build_email_body(summary=summary_text_plain, messages=messages)  # pylint: disable=protected-access
+        print("Summary:\n", summary_plain)
+        print("\nBody preview:\n", body_text)
+        if summary_html:
+            print("\nHTML preview:\n", summary_html)
         return
 
     service.run()

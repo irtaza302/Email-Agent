@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "job-email-digest"
+version = "0.1.0"
+description = "Daily Gmail job email summarizer using OpenRouter"
+requires-python = ">=3.11"
+authors = [{ name = "User" }]
+dependencies = [
+  "google-api-python-client>=2.147.0",
+  "google-auth-oauthlib>=1.2.0",
+  "google-auth-httplib2>=0.2.0",
+  "python-dotenv>=1.0.1",
+  "requests>=2.32.3",
+  "tenacity>=9.0.0"
+]
+

@@ -1,0 +1,6 @@
+pyproject.toml
+src/job_email_digest.egg-info/PKG-INFO
+src/job_email_digest.egg-info/SOURCES.txt
+src/job_email_digest.egg-info/dependency_links.txt
+src/job_email_digest.egg-info/requires.txt
+src/job_email_digest.egg-info/top_level.txt

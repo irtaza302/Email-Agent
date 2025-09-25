@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: job-email-digest
+Version: 0.1.0
+Summary: Daily Gmail job email summarizer using OpenRouter
+Author: User
+Requires-Python: >=3.11
+Requires-Dist: google-api-python-client>=2.147.0
+Requires-Dist: google-auth-oauthlib>=1.2.0
+Requires-Dist: google-auth-httplib2>=0.2.0
+Requires-Dist: python-dotenv>=1.0.1
+Requires-Dist: requests>=2.32.3
+Requires-Dist: tenacity>=9.0.0

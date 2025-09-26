@@ -37,7 +37,8 @@ class JobEmailSummarizer:
         )
         if not messages:
             logger.info("No recent emails found in timeframe")
-            return ("No job-related emails found in the selected timeframe.", [])
+            summary = "No job-related emails found in the selected timeframe."
+            return (summary, [], summary, "")
 
         enriched_messages = []
         classifier_input = []

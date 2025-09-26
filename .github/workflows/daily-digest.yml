@@ -48,7 +48,21 @@ jobs:
         run: |
           mkdir -p config
           echo "$GCP_CREDENTIALS_B64" | base64 -d > config/credentials.json
-          echo "$GCP_TOKEN_B64" | base64 -d > config/token.json
+          # Reconstruct the full token.json with all required fields
+          TOKEN_VALUE=$(echo "$GCP_TOKEN_B64" | base64 -d)
+          cat > config/token.json << EOF
+          {
+            "token": "$TOKEN_VALUE",
+            "refresh_token": "1//09AQTORJDA1KLCgYIARAAGAkSNwF-L9Irx2I29eow86xlbrhwgjsYQc6gDMrHT6N2pl6MsvxgPVYjEQINdeGunPs7eBkMg4JgN8o",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "client_id": "540468478347-rdf2h7e9srgnrff8k8ihblvmurr10tu4.apps.googleusercontent.com",
+            "client_secret": "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",
+            "scopes": ["https://www.googleapis.com/auth/gmail.readonly", "https://www.googleapis.com/auth/gmail.modify", "https://www.googleapis.com/auth/gmail.send"],
+            "universe_domain": "googleapis.com",
+            "account": "",
+            "expiry": "2025-09-25T14:00:29Z"
+          }
+          EOF
 
       - name: Run daily digest
         env:

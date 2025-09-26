@@ -28,7 +28,7 @@ jobs:
           OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}
           SUMMARY_RECIPIENT=${{ secrets.SUMMARY_RECIPIENT }}
           SUMMARY_SENDER=${{ secrets.SUMMARY_SENDER }}
-          JOB_LABEL=${{ vars.JOB_LABEL || 'JobAlerts' }}
+          JOB_LABEL=${{ vars.JOB_LABEL || '' }}
           SUMMARY_MODEL=${{ vars.SUMMARY_MODEL || 'x-ai/grok-4-fast:free' }}
           SUMMARY_MAX_EMAILS=${{ vars.SUMMARY_MAX_EMAILS || '20' }}
           SUMMARY_TIMEFRAME_HOURS=${{ vars.SUMMARY_TIMEFRAME_HOURS || '24' }}
@@ -67,5 +67,9 @@ jobs:
       - name: Run daily digest
         env:
           PYTHONUNBUFFERED: '1'
-        run: python -m src.main
+        run: |
+          echo "Environment variables:"
+          echo "JOB_LABEL: $JOB_LABEL"
+          echo "SUMMARY_TIMEFRAME_HOURS: $SUMMARY_TIMEFRAME_HOURS"
+          python -m src.main
 

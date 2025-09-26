@@ -70,7 +70,7 @@ class GmailClient:
         query_parts.append(f"newer_than:{timeframe_hours}h")
 
         query = " ".join(query_parts)
-        logger.debug("Gmail query: %s", query)
+        logger.info("Gmail query: %s", query)
 
         try:
             response = (

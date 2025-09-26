@@ -1,13 +1,25 @@
+# Virtual environments
 .venv/
+venv/
+env/
+ENV/
+
+# Python cache
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
 .mypy_cache/
 .pytest_cache/
-*.pyc
+
+# Sensitive files
 config/credentials.json
 config/token.json
-.env
 logs/
 
+# Development tooling
+CLAUDE.md
 .clinerules/byterover-rules.md
 .kilocode/rules/byterover-rules.md
 .roo/rules/byterover-rules.md
@@ -16,3 +28,9 @@ logs/
 .kiro/steering/byterover-rules.md
 .qoder/rules/byterover-rules.md
 .augment/rules/byterover-rules.md
+
+# OS files
+.DS_Store
+Thumbs.db
+config.bat
+node_modules
